@@ -35,7 +35,7 @@ title.Parent = frame
 
 -- Close Button
 local closeButton = Instance.new("TextButton")
-closeButton.Text = "X"
+closeButton.Text = "❎"
 closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 20
 closeButton.TextColor3 = Color3.fromRGB(255, 0, 0)
