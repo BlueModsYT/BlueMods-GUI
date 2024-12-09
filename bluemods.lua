@@ -13,7 +13,45 @@ local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 300, 0, 400)
 frame.Position = UDim2.new(0.5, -150, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderColor3 = Color3.fromRGB(0, 255, 255) -- Cyan border
+frame.BorderSizePixel = 2
 frame.Parent = gui
+
+-- Enable dragging functionality
+local isDragging = false
+local dragInput, dragStart, startPos
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                isDragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if isDragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
 
 -- Title with Logo
 local logo = Instance.new("ImageLabel")
@@ -35,7 +73,7 @@ title.Parent = frame
 
 -- Close Button
 local closeButton = Instance.new("TextButton")
-closeButton.Text = "❎"
+closeButton.Text = "X"
 closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 20
 closeButton.TextColor3 = Color3.fromRGB(255, 0, 0)
