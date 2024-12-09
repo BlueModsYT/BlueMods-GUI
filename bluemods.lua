@@ -1,188 +1,152 @@
+-- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+-- Player Reference
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+local playerGui = player:WaitForChild("PlayerGui")
 
--- GUI Elements
-local gui = Instance.new("ScreenGui")
-gui.Name = "BlueModsGUI"
-gui.Parent = game.CoreGui
+-- Variables
+local guiDragging = false
+local dragInput, startPos, startOffset
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 400)
-frame.Position = UDim2.new(0.5, -150, 0.5, -200)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-frame.BorderColor3 = Color3.fromRGB(0, 255, 255) -- Cyan border
-frame.BorderSizePixel = 2
-frame.Parent = gui
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BlueModsGUI"
+screenGui.Parent = playerGui
 
--- Enable dragging functionality
-local isDragging = false
-local dragInput, dragStart, startPos
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 400, 0, 300)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.BackgroundTransparency = 0.3
+mainFrame.BorderColor3 = Color3.fromRGB(75, 112, 245)
+mainFrame.Parent = screenGui
 
-frame.InputBegan:Connect(function(input)
+-- Draggable TitleBar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local logo = Instance.new("ImageLabel")
+logo.Name = "Logo"
+logo.Size = UDim2.new(0, 24, 0, 24)
+logo.Position = UDim2.new(0, 3, 0.5, -12)
+logo.Image = "https://bluemods.neocities.org/p/ic_blue.png"
+logo.BackgroundTransparency = 1
+logo.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(1, -90, 1, 0)
+titleLabel.Position = UDim2.new(0, 30, 0, 0)
+titleLabel.Text = "BlueMods"
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.BackgroundTransparency = 1
+titleLabel.Parent = titleBar
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 30, 1, 0)
+closeButton.Position = UDim2.new(1, -35, 0, 0)
+closeButton.Text = "❎"
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.BackgroundTransparency = 1
+closeButton.Parent = titleBar
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- Add Buttons and Inputs
+local function createTextInput(title, position)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.Position = position
+    frame.BackgroundTransparency = 1
+    frame.Parent = mainFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Text = title
+    label.Font = Enum.Font.SourceSans
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.5, -10, 1, 0)
+    textBox.Position = UDim2.new(0.5, 5, 0, 0)
+    textBox.Text = "0"
+    textBox.Font = Enum.Font.SourceSans
+    textBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+    textBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.Parent = frame
+
+    return textBox
+end
+
+local walkSpeedInput = createTextInput("Walk Speed (0-500):", UDim2.new(0, 10, 0, 40))
+local jumpBoostInput = createTextInput("Jump Boost (0-500):", UDim2.new(0, 10, 0, 90))
+
+-- Drag Functionality
+titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                isDragging = false
-            end
-        end)
+        guiDragging = true
+        startPos = input.Position
+        startOffset = mainFrame.Position
     end
 end)
 
-frame.InputChanged:Connect(function(input)
+titleBar.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement then
         dragInput = input
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    if isDragging and dragInput then
-        local delta = dragInput.Position - dragStart
-        frame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
+titleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        guiDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if guiDragging and input == dragInput then
+        local delta = input.Position - startPos
+        mainFrame.Position = UDim2.new(
+            startOffset.X.Scale,
+            startOffset.X.Offset + delta.X,
+            startOffset.Y.Scale,
+            startOffset.Y.Offset + delta.Y
         )
     end
 end)
 
--- Title with Logo
-local logo = Instance.new("ImageLabel")
-logo.Size = UDim2.new(0, 50, 0, 50)
-logo.Position = UDim2.new(0, 10, 0, 10)
-logo.Image = "https://bluemods.neocities.org/p/ic_blue.png"
-logo.BackgroundTransparency = 1
-logo.Parent = frame
-
-local title = Instance.new("TextLabel")
-title.Text = "BlueMods"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 24
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Position = UDim2.new(0, 70, 0, 10)
-title.Size = UDim2.new(0, 200, 0, 50)
-title.BackgroundTransparency = 1
-title.Parent = frame
-
--- Close Button
-local closeButton = Instance.new("TextButton")
-closeButton.Text = "X"
-closeButton.Font = Enum.Font.SourceSansBold
-closeButton.TextSize = 20
-closeButton.TextColor3 = Color3.fromRGB(255, 0, 0)
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -40, 0, 10)
-closeButton.BackgroundTransparency = 0.5
-closeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-closeButton.Parent = frame
-
-closeButton.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
-
--- Walk Speed Slider
-local walkSpeedSlider = Instance.new("TextBox")
-walkSpeedSlider.PlaceholderText = "Walk Speed (0-100)"
-walkSpeedSlider.Size = UDim2.new(0, 260, 0, 40)
-walkSpeedSlider.Position = UDim2.new(0, 20, 0, 80)
-walkSpeedSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-walkSpeedSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-walkSpeedSlider.Font = Enum.Font.SourceSans
-walkSpeedSlider.TextSize = 18
-walkSpeedSlider.Parent = frame
-
-walkSpeedSlider.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        local speed = tonumber(walkSpeedSlider.Text)
-        if speed and speed >= 0 and speed <= 100 then
-            humanoid.WalkSpeed = speed
-        else
-            walkSpeedSlider.Text = "Invalid Value"
-        end
-    end
-end)
-
--- Jump Power Slider
-local jumpPowerSlider = Instance.new("TextBox")
-jumpPowerSlider.PlaceholderText = "Jump Power (0-100)"
-jumpPowerSlider.Size = UDim2.new(0, 260, 0, 40)
-jumpPowerSlider.Position = UDim2.new(0, 20, 0, 140)
-jumpPowerSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-jumpPowerSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-jumpPowerSlider.Font = Enum.Font.SourceSans
-jumpPowerSlider.TextSize = 18
-jumpPowerSlider.Parent = frame
-
-jumpPowerSlider.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        local power = tonumber(jumpPowerSlider.Text)
-        if power and power >= 0 and power <= 100 then
-            humanoid.JumpPower = power
-        else
-            jumpPowerSlider.Text = "Invalid Value"
-        end
-    end
-end)
-
--- Levitation Toggle
-local levitationToggle = Instance.new("TextButton")
-levitationToggle.Text = "Levitation: OFF"
-levitationToggle.Size = UDim2.new(0, 260, 0, 40)
-levitationToggle.Position = UDim2.new(0, 20, 0, 200)
-levitationToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-levitationToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-levitationToggle.Font = Enum.Font.SourceSans
-levitationToggle.TextSize = 18
-levitationToggle.Parent = frame
-
-local isLevitating = false
-levitationToggle.MouseButton1Click:Connect(function()
-    isLevitating = not isLevitating
-    levitationToggle.Text = "Levitation: " .. (isLevitating and "ON" or "OFF")
-    if isLevitating then
-        RunService.RenderStepped:Connect(function()
-            if isLevitating then
-                character:TranslateBy(Vector3.new(0, 0.5, 0))
-            end
-        end)
-    end
-end)
-
--- No Clip Toggle
-local noClipToggle = Instance.new("TextButton")
-noClipToggle.Text = "No Clip: OFF"
-noClipToggle.Size = UDim2.new(0, 260, 0, 40)
-noClipToggle.Position = UDim2.new(0, 20, 0, 260)
-noClipToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-noClipToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-noClipToggle.Font = Enum.Font.SourceSans
-noClipToggle.TextSize = 18
-noClipToggle.Parent = frame
-
-local isNoClip = false
-noClipToggle.MouseButton1Click:Connect(function()
-    isNoClip = not isNoClip
-    noClipToggle.Text = "No Clip: " .. (isNoClip and "ON" or "OFF")
-    if isNoClip then
-        RunService.Stepped:Connect(function()
-            for _, part in pairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        end)
+-- Functionality (Walk Speed and Jump Boost)
+walkSpeedInput.FocusLost:Connect(function()
+    local speed = tonumber(walkSpeedInput.Text)
+    if speed and speed >= 0 and speed <= 500 then
+        player.Character.Humanoid.WalkSpeed = speed
     else
-        for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
-        end
+        walkSpeedInput.Text = tostring(player.Character.Humanoid.WalkSpeed)
+    end
+end)
+
+jumpBoostInput.FocusLost:Connect(function()
+    local jump = tonumber(jumpBoostInput.Text)
+    if jump and jump >= 0 and jump <= 500 then
+        player.Character.Humanoid.JumpPower = jump
+    else
+        jumpBoostInput.Text = tostring(player.Character.Humanoid.JumpPower)
     end
 end)
