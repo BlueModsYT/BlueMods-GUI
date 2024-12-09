@@ -1,7 +1,7 @@
 -- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 -- Player Reference
 local player = Players.LocalPlayer
@@ -10,6 +10,9 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- Variables
 local guiDragging = false
 local dragInput, startPos, startOffset
+local floatEnabled = false
+local noClipEnabled = false
+local flingEnabled = false
 
 -- Create GUI
 local screenGui = Instance.new("ScreenGui")
@@ -18,8 +21,8 @@ screenGui.Parent = playerGui
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 400, 0, 300)
-mainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+mainFrame.Size = UDim2.new(0, 400, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BackgroundTransparency = 0.3
 mainFrame.BorderColor3 = Color3.fromRGB(75, 112, 245)
@@ -68,7 +71,7 @@ closeButton.MouseButton1Click:Connect(function()
 end)
 
 -- Add Buttons and Inputs
-local function createTextInput(title, position)
+local function createToggle(title, position, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, -20, 0, 40)
     frame.Position = position
@@ -76,7 +79,7 @@ local function createTextInput(title, position)
     frame.Parent = mainFrame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Size = UDim2.new(0.7, 0, 1, 0)
     label.Text = title
     label.Font = Enum.Font.SourceSans
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -84,69 +87,135 @@ local function createTextInput(title, position)
     label.BackgroundTransparency = 1
     label.Parent = frame
 
-    local textBox = Instance.new("TextBox")
-    textBox.Size = UDim2.new(0.5, -10, 1, 0)
-    textBox.Position = UDim2.new(0.5, 5, 0, 0)
-    textBox.Text = "0"
-    textBox.Font = Enum.Font.SourceSans
-    textBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-    textBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    textBox.Parent = frame
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.3, 0, 1, 0)
+    button.Position = UDim2.new(0.7, 0, 0, 0)
+    button.Text = "Off"
+    button.Font = Enum.Font.SourceSansBold
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+    button.Parent = frame
 
-    return textBox
+    button.MouseButton1Click:Connect(function()
+        local newState = button.Text == "Off"
+        button.Text = newState and "On" or "Off"
+        callback(newState)
+    end)
 end
 
-local walkSpeedInput = createTextInput("Walk Speed (0-500):", UDim2.new(0, 10, 0, 40))
-local jumpBoostInput = createTextInput("Jump Boost (0-500):", UDim2.new(0, 10, 0, 90))
+local function createDropdown(title, position, playersCallback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.Position = position
+    frame.BackgroundTransparency = 1
+    frame.Parent = mainFrame
 
--- Drag Functionality
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        guiDragging = true
-        startPos = input.Position
-        startOffset = mainFrame.Position
-    end
-end)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Text = title
+    label.Font = Enum.Font.SourceSans
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
 
-titleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
+    local dropdown = Instance.new("TextButton")
+    dropdown.Size = UDim2.new(0.3, 0, 1, 0)
+    dropdown.Position = UDim2.new(0.7, 0, 0, 0)
+    dropdown.Text = "Select Player"
+    dropdown.Font = Enum.Font.SourceSansBold
+    dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdown.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+    dropdown.Parent = frame
 
-titleBar.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        guiDragging = false
-    end
-end)
+    local menu = Instance.new("Frame")
+    menu.Size = UDim2.new(0.3, 0, 0, 100)
+    menu.Position = UDim2.new(0.7, 0, 1, 0)
+    menu.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    menu.BorderColor3 = Color3.fromRGB(75, 112, 245)
+    menu.Visible = false
+    menu.Parent = frame
 
-UserInputService.InputChanged:Connect(function(input)
-    if guiDragging and input == dragInput then
-        local delta = input.Position - startPos
-        mainFrame.Position = UDim2.new(
-            startOffset.X.Scale,
-            startOffset.X.Offset + delta.X,
-            startOffset.Y.Scale,
-            startOffset.Y.Offset + delta.Y
-        )
-    end
-end)
+    dropdown.MouseButton1Click:Connect(function()
+        menu.Visible = not menu.Visible
+        menu:ClearAllChildren()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local item = Instance.new("TextButton")
+                item.Size = UDim2.new(1, 0, 0, 20)
+                item.Text = p.Name
+                item.Font = Enum.Font.SourceSans
+                item.TextColor3 = Color3.fromRGB(255, 255, 255)
+                item.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                item.Parent = menu
 
--- Functionality (Walk Speed and Jump Boost)
-walkSpeedInput.FocusLost:Connect(function()
-    local speed = tonumber(walkSpeedInput.Text)
-    if speed and speed >= 0 and speed <= 500 then
-        player.Character.Humanoid.WalkSpeed = speed
+                item.MouseButton1Click:Connect(function()
+                    dropdown.Text = p.Name
+                    menu.Visible = false
+                    playersCallback(p)
+                end)
+            end
+        end
+    end)
+end
+
+-- Float Toggle
+createToggle("Float:", UDim2.new(0, 10, 0, 140), function(state)
+    floatEnabled = state
+    if floatEnabled then
+        local bodyPosition = Instance.new("BodyPosition")
+        bodyPosition.MaxForce = Vector3.new(0, math.huge, 0)
+        bodyPosition.Position = player.Character.HumanoidRootPart.Position
+        bodyPosition.Parent = player.Character.HumanoidRootPart
     else
-        walkSpeedInput.Text = tostring(player.Character.Humanoid.WalkSpeed)
+        for _, bp in pairs(player.Character.HumanoidRootPart:GetChildren()) do
+            if bp:IsA("BodyPosition") then
+                bp:Destroy()
+            end
+        end
     end
 end)
 
-jumpBoostInput.FocusLost:Connect(function()
-    local jump = tonumber(jumpBoostInput.Text)
-    if jump and jump >= 0 and jump <= 500 then
-        player.Character.Humanoid.JumpPower = jump
-    else
-        jumpBoostInput.Text = tostring(player.Character.Humanoid.JumpPower)
+-- No Clip Toggle
+createToggle("No Clip:", UDim2.new(0, 10, 0, 190), function(state)
+    noClipEnabled = state
+end)
+
+RunService.Stepped:Connect(function()
+    if noClipEnabled then
+        for _, part in pairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Fling Toggle
+createToggle("Fling:", UDim2.new(0, 10, 0, 240), function(state)
+    flingEnabled = state
+    if flingEnabled then
+        player.Character.HumanoidRootPart.Velocity = Vector3.new(1000, 0, 0)
+    end
+end)
+
+-- Teleport Dropdown
+local selectedPlayer
+createDropdown("Teleport Player:", UDim2.new(0, 10, 0, 290), function(p)
+    selectedPlayer = p
+end)
+
+local teleportButton = Instance.new("TextButton")
+teleportButton.Size = UDim2.new(1, -20, 0, 40)
+teleportButton.Position = UDim2.new(0, 10, 0, 340)
+teleportButton.Text = "Teleport"
+teleportButton.Font = Enum.Font.SourceSansBold
+teleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleportButton.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+teleportButton.Parent = mainFrame
+
+teleportButton.MouseButton1Click:Connect(function()
+    if selectedPlayer and selectedPlayer.Character then
+        player.Character.HumanoidRootPart.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame
     end
 end)
