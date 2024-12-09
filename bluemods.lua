@@ -181,4 +181,152 @@ createInput("Jump Boost (0-500):", UDim2.new(0, 10, 0, 60), function(value)
     end
 end)
 
--- Float, No Clip, Fling, and Teleport can be added similarly.
+-- Add Buttons and Inputs
+local function createToggle(title, position, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.Position = position
+    frame.BackgroundTransparency = 1
+    frame.Parent = mainFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Text = title
+    label.Font = Enum.Font.SourceSans
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.3, 0, 1, 0)
+    button.Position = UDim2.new(0.7, 0, 0, 0)
+    button.Text = "Off"
+    button.Font = Enum.Font.SourceSansBold
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+    button.Parent = frame
+
+    button.MouseButton1Click:Connect(function()
+        local newState = button.Text == "Off"
+        button.Text = newState and "On" or "Off"
+        callback(newState)
+    end)
+end
+
+local function createDropdown(title, position, playersCallback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.Position = position
+    frame.BackgroundTransparency = 1
+    frame.Parent = mainFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Text = title
+    label.Font = Enum.Font.SourceSans
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+
+    local dropdown = Instance.new("TextButton")
+    dropdown.Size = UDim2.new(0.3, 0, 1, 0)
+    dropdown.Position = UDim2.new(0.7, 0, 0, 0)
+    dropdown.Text = "Select Player"
+    dropdown.Font = Enum.Font.SourceSansBold
+    dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdown.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+    dropdown.Parent = frame
+
+    local menu = Instance.new("Frame")
+    menu.Size = UDim2.new(0.3, 0, 0, 100)
+    menu.Position = UDim2.new(0.7, 0, 1, 0)
+    menu.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    menu.BorderColor3 = Color3.fromRGB(75, 112, 245)
+    menu.Visible = false
+    menu.Parent = frame
+
+    dropdown.MouseButton1Click:Connect(function()
+        menu.Visible = not menu.Visible
+        menu:ClearAllChildren()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local item = Instance.new("TextButton")
+                item.Size = UDim2.new(1, 0, 0, 20)
+                item.Text = p.Name
+                item.Font = Enum.Font.SourceSans
+                item.TextColor3 = Color3.fromRGB(255, 255, 255)
+                item.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                item.Parent = menu
+
+                item.MouseButton1Click:Connect(function()
+                    dropdown.Text = p.Name
+                    menu.Visible = false
+                    playersCallback(p)
+                end)
+            end
+        end
+    end)
+end
+
+-- Float Toggle
+createToggle("Float:", UDim2.new(0, 10, 0, 140), function(state)
+    floatEnabled = state
+    if floatEnabled then
+        local bodyPosition = Instance.new("BodyPosition")
+        bodyPosition.MaxForce = Vector3.new(0, math.huge, 0)
+        bodyPosition.Position = player.Character.HumanoidRootPart.Position
+        bodyPosition.Parent = player.Character.HumanoidRootPart
+    else
+        for _, bp in pairs(player.Character.HumanoidRootPart:GetChildren()) do
+            if bp:IsA("BodyPosition") then
+                bp:Destroy()
+            end
+        end
+    end
+end)
+
+-- No Clip Toggle
+createToggle("No Clip:", UDim2.new(0, 10, 0, 190), function(state)
+    noClipEnabled = state
+end)
+
+RunService.Stepped:Connect(function()
+    if noClipEnabled then
+        for _, part in pairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Fling Toggle
+createToggle("Fling:", UDim2.new(0, 10, 0, 240), function(state)
+    flingEnabled = state
+    if flingEnabled then
+        player.Character.HumanoidRootPart.Velocity = Vector3.new(1000, 0, 0)
+    end
+end)
+
+-- Teleport Dropdown
+local selectedPlayer
+createDropdown("Teleport Player:", UDim2.new(0, 10, 0, 290), function(p)
+    selectedPlayer = p
+end)
+
+local teleportButton = Instance.new("TextButton")
+teleportButton.Size = UDim2.new(1, -20, 0, 40)
+teleportButton.Position = UDim2.new(0, 10, 0, 340)
+teleportButton.Text = "Teleport"
+teleportButton.Font = Enum.Font.SourceSansBold
+teleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleportButton.BackgroundColor3 = Color3.fromRGB(75, 112, 245)
+teleportButton.Parent = mainFrame
+
+teleportButton.MouseButton1Click:Connect(function()
+    if selectedPlayer and selectedPlayer.Character then
+        player.Character.HumanoidRootPart.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame
+    end
+end)
